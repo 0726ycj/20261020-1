@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>韓文單詞大挑戰 - 多媒體拖曳學習測驗</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Noto Sans KR & TC -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;800&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <style>
+    body {
+      font-family: 'Noto Sans TC', 'Noto Sans KR', sans-serif;
+      background-color: #FAF8F5;
+      color: #333333;
+      touch-action: manipulation;
+    }
+    .korean-font {
+      font-family: 'Noto Sans KR', sans-serif;
+    }
+    
+    /* Card Drag Styling */
+    .drag-card {
+      user-select: none;
+      -webkit-user-select: none;
+      cursor: grab;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .drag-card:active {
+      cursor: grabbing;
+      transform: scale(1.05) rotate(-2deg);
+      box-shadow: 0 12px 24px -6px rgba(0, 0, 0, 0.15);
+    }
+    .drag-card.dragging {
+      opacity: 0.4;
+    }
+
+    /* Drop Zone Target Styling */
+    .drop-zone {
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .drop-zone.drag-over {
+      border-color: #FF8A80;
+      background-color: #FFF3F2;
+      transform: scale(1.02);
+      box-shadow: 0 0 15px rgba(255, 138, 128, 0.4);
+    }
+    .drop-zone.matched {
+      border-color: #81C784;
+      background-color: #E8F5E9;
+    }
+
+    /* Floating Particles Canvas overlay */
+    #particle-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none;
+      z-index: 50;
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #F1F1F1;
+      border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #FFCDD2;
+      border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #E57373;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between overflow-x-hidden relative">
+
+  <!-- Particle Canvas Overlay for Celebration -->
+  <canvas id="particle-canvas"></canvas>
+
+  <!-- Navigation Header -->
+  <header class="bg-white/80 backdrop-blur-md border-b border-rose-100 sticky top-0 z-30 px-4 py-3 shadow-sm">
+    <div class="max-w-5xl mx-auto flex flex-wrap justify-between items-center gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-rose-400 to-amber-300 flex items-center justify-center text-white shadow-md shadow-rose-200">
+          <span class="korean-font font-extrabold text-xl">한</span>
+        </div>
+        <div>
+          <h1 class="font-bold text-lg text-slate-800 leading-tight">韓文單詞大挑戰</h1>
+          <p class="text-xs text-slate-500">PBL 多媒體互動測驗系統 · 三感體驗學習</p>
+        </div>
+      </div>
+
+      <!-- Controls & Mute button -->
+      <div class="flex items-center gap-3">
+        <button id="tts-test-btn" onclick="speakKorean('안녕하세요')" class="px-3 py-1.5 rounded-full bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 text-xs font-semibold flex items-center gap-1.5 transition">
+          <i class="fa-solid fa-volume-high"></i> 試聽發音
+        </button>
+        <button id="sound-toggle" onclick="toggleMute()" class="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition">
+          <i class="fa-solid fa-volume-low" id="sound-icon"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Game Container -->
+  <main class="max-w-5xl w-full mx-auto px-4 py-6 flex-1 flex flex-col gap-6">
+
+    <!-- Category Selector & Progress Dashboard -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      
+      <!-- Category Selector Dropdown & Buttons -->
+      <div class="bg-white p-4 rounded-2xl border border-amber-100 shadow-sm flex flex-col justify-between gap-3">
+        <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">選擇主題 (Categories)</label>
+        <div class="grid grid-cols-3 gap-2">
+          <button onclick="selectCategory('food')" id="cat-btn-food" class="cat-btn py-2 px-3 rounded-xl border border-rose-200 bg-rose-50 text-rose-600 font-medium text-xs text-center flex flex-col items-center gap-1 hover:shadow-sm transition">
+            <span class="text-lg">🍱</span>
+            <span>美食單詞</span>
+          </button>
+          <button onclick="selectCategory('daily')" id="cat-btn-daily" class="cat-btn py-2 px-3 rounded-xl border border-slate-200 bg-white text-slate-600 font-medium text-xs text-center flex flex-col items-center gap-1 hover:shadow-sm transition">
+            <span class="text-lg">💬</span>
+            <span>K-POP日常</span>
+          </button>
+          <button onclick="selectCategory('animals')" id="cat-btn-animals" class="cat-btn py-2 px-3 rounded-xl border border-slate-200 bg-white text-slate-600 font-medium text-xs text-center flex flex-col items-center gap-1 hover:shadow-sm transition">
+            <span class="text-lg">🐶</span>
+            <span>可愛動物</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Level & Score Stats -->
+      <div class="bg-white p-4 rounded-2xl border border-amber-100 shadow-sm flex flex-col justify-between gap-3">
+        <div class="flex justify-between items-center">
+          <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">目前得分 & 連擊</span>
+          <span id="combo-badge" class="hidden px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-extrabold animate-bounce">
+            🔥 2 連勝!
+          </span>
+        </div>
+        <div class="flex items-baseline justify-between">
+          <div>
+            <span class="text-3xl font-black text-slate-800" id="score-text">0</span>
+            <span class="text-xs text-slate-400 ml-1">分</span>
+          </div>
+          <div class="text-right">
+            <span class="text-xs text-slate-500">關卡進度</span>
+            <div class="text-sm font-bold text-rose-500" id="level-indicator">關卡 1 / 3</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Progress Bar & Hint -->
+      <div class="bg-white p-4 rounded-2xl border border-amber-100 shadow-sm flex flex-col justify-between gap-2">
+        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">完成百分比</span>
+        <div class="w-full bg-slate-100 rounded-full h-4 overflow-hidden p-0.5 border border-slate-200">
+          <div id="progress-bar" class="bg-gradient-to-r from-rose-400 to-emerald-400 h-full rounded-full transition-all duration-500 w-0"></div>
+        </div>
+        <p class="text-xs text-slate-500 flex items-center justify-between">
+          <span>💡 抓取下方韓文卡，拖曳至對應圖片中！</span>
+          <span id="matched-count-text" class="font-bold text-slate-700">0 / 4</span>
+        </p>
+      </div>
+
+    </div>
+
+    <!-- Drag & Drop Playground Area -->
+    <div class="bg-white/60 backdrop-blur-sm rounded-3xl p-6 border border-rose-100 shadow-xl flex flex-col gap-8 min-h-[420px] justify-between relative">
+      
+      <!-- Target Drop Zones Area (Pictures / Concepts) -->
+      <div>
+        <h2 class="text-sm font-bold text-slate-500 mb-3 flex items-center gap-2">
+          <i class="fa-solid fa-bullseye text-rose-400"></i> 目標放落區 (Target Drop Zones)
+        </h2>
+        <div id="drop-zones-container" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <!-- Drop zones generated dynamically -->
+        </div>
+      </div>
+
+      <!-- Divider line with drag icon -->
+      <div class="relative flex py-1 items-center">
+        <div class="flex-grow border-t border-rose-200/60"></div>
+        <span class="flex-shrink mx-4 text-xs text-rose-300 font-semibold uppercase tracking-wider bg-white px-3 py-1 rounded-full border border-rose-100 shadow-sm">
+          <i class="fa-solid fa-hand-pointer mr-1"></i> 韓文單詞卡片 (Word Cards)
+        </span>
+        <div class="flex-grow border-t border-rose-200/60"></div>
+      </div>
+
+      <!-- Draggable Korean Word Cards Area -->
+      <div>
+        <div id="draggable-cards-container" class="flex flex-wrap items-center justify-center gap-4 min-h-[90px]">
+          <!-- Draggable cards generated dynamically -->
+        </div>
+      </div>
+
+      <!-- Level Complete Overlay (Hidden by default) -->
+      <div id="level-complete-modal" class="hidden absolute inset-0 bg-white/95 backdrop-blur-md rounded-3xl z-20 flex flex-col items-center justify-center p-6 text-center animate-fade-in">
+        <div class="w-20 h-20 bg-amber-100 text-amber-500 rounded-full flex items-center justify-center text-4xl mb-4 shadow-lg animate-bounce">
+          🏆
+        </div>
+        <h3 class="text-2xl font-black text-slate-800 mb-1">축하합니다! (恭喜通關!)</h3>
+        <p class="text-sm text-slate-600 mb-6 max-w-md">你成功完成了本關卡的所有韓文單詞配對！獲得了正確聽力與字形記憶。</p>
+
+        <!-- Dynamic summary card -->
+        <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-6 w-full max-w-md text-left text-xs text-amber-900 space-y-1">
+          <div class="flex justify-between font-bold text-sm text-amber-900 mb-1">
+            <span>關卡學習報告</span>
+            <span id="modal-score">得分: 400</span>
+          </div>
+          <div id="learned-words-list" class="space-y-1">
+            <!-- Learned words dynamically listed -->
+          </div>
+        </div>
+
+        <div class="flex gap-3">
+          <button onclick="restartLevel()" class="px-5 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-semibold text-sm hover:bg-slate-100 transition">
+            <i class="fa-solid fa-rotate-right mr-1"></i> 再玩一次
+          </button>
+          <button onclick="nextLevel()" id="next-level-btn" class="px-6 py-2.5 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-bold text-sm shadow-md shadow-rose-200 transition">
+            下一關 <i class="fa-solid fa-arrow-right ml-1"></i>
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Toast Notification / Instant Feedback Popup -->
+  <div id="feedback-toast" class="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-slate-900/90 text-white px-5 py-3 rounded-2xl shadow-2xl z-40 flex items-center gap-3 border border-slate-700 transition-all duration-300 opacity-0 pointer-events-none translate-y-4">
+    <div id="toast-icon" class="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-lg">
+      ✓
+    </div>
+    <div>
+      <div class="flex items-center gap-2">
+        <span id="toast-korean" class="korean-font font-bold text-base text-amber-300">사과</span>
+        <span id="toast-romaja" class="text-xs text-slate-400">[sagwa]</span>
+      </div>
+      <p id="toast-meaning" class="text-xs text-slate-200">意思是：蘋果 🍎</p>
+    </div>
+    <button onclick="speakKorean(document.getElementById('toast-korean').innerText)" class="ml-2 w-7 h-7 rounded-full bg-slate-800 hover:bg-slate-700 text-amber-300 flex items-center justify-center text-xs transition">
+      <i class="fa-solid fa-volume-high"></i>
+    </button>
+  </div>
+
+  <!-- Footer -->
+  <footer class="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-400">
+    <p>PBL 多媒體測驗專案 · 結合 HTML5 Drag & Drop、Web Speech API 與 Web Audio 音效設計</p>
+  </footer>
+
+  <!-- Inline JavaScript Logic -->
+  <script>
+    /* ==========================================================================
+       1. DATA STRUCTURES (Categories, Levels, Korean Vocabulary)
+       ========================================================================== */
+    const VOCABULARY_DATA = {
+      food: [
+        { id: "f1", korean: "떡볶이", romaja: "tteokbokki", chinese: "辣炒年糕", emoji: "🥘", imageColor: "bg-rose-100" },
+        { id: "f2", korean: "김밥", romaja: "gimbap", chinese: "韓式海苔飯捲", emoji: "🍙", imageColor: "bg-emerald-100" },
+        { id: "f3", korean: "비빔밥", romaja: "bibimbap", chinese: "韓式拌飯", emoji: "🥗", imageColor: "bg-amber-100" },
+        { id: "f4", korean: "삼겹살", romaja: "samgyeopsal", chinese: "烤五花肉", emoji: "🥓", imageColor: "bg-red-100" },
+        { id: "f5", korean: "치킨", romaja: "chikin", chinese: "韓式炸雞", emoji: "🍗", imageColor: "bg-yellow-100" },
+        { id: "f6", korean: "라면", romaja: "ramyeon", chinese: "韓國拉麵", emoji: "🍜", imageColor: "bg-orange-100" },
+        { id: "f7", korean: "김치", romaja: "gimchi", chinese: "泡菜", emoji: "🥬", imageColor: "bg-rose-200" },
+        { id: "f8", korean: "소주", romaja: "soju", chinese: "燒酒", emoji: "🍾", imageColor: "bg-teal-100" }
+      ],
+      daily: [
+        { id: "d1", korean: "사랑해", romaja: "saranghae", chinese: "我愛你", emoji: "🫰", imageColor: "bg-pink-100" },
+        { id: "d2", korean: "감사합니다", romaja: "gamsahamnida", chinese: "謝謝您", emoji: "🙏", imageColor: "bg-blue-100" },
+        { id: "d3", korean: "안녕하세요", romaja: "annyeonghaseyo", chinese: "你好", emoji: "👋", imageColor: "bg-indigo-100" },
+        { id: "d4", korean: "대박", romaja: "daebak", chinese: "太棒了 / 厲害", emoji: "👍", imageColor: "bg-purple-100" },
+        { id: "d5", korean: "진짜", romaja: "jinjja", chinese: "真的嗎", emoji: "😮", imageColor: "bg-amber-100" },
+        { id: "d6", korean: "친구", romaja: "chingu", chinese: "朋友", emoji: "👭", imageColor: "bg-emerald-100" },
+        { id: "d7", korean: "오빠", romaja: "oppa", chinese: "哥哥 (女性稱呼)", emoji: "🙋‍♂️", imageColor: "bg-sky-100" },
+        { id: "d8", korean: "파이팅", romaja: "paiting", chinese: "加油!", emoji: "🔥", imageColor: "bg-orange-100" }
+      ],
+      animals: [
+        { id: "a1", korean: "고양이", romaja: "goyangi", chinese: "貓咪", emoji: "🐱", imageColor: "bg-amber-100" },
+        { id: "a2", korean: "강아지", romaja: "gangaji", chinese: "小狗", emoji: "🐶", imageColor: "bg-orange-100" },
+        { id: "a3", korean: "토끼", romaja: "tokki", chinese: "兔子", emoji: "🐰", imageColor: "bg-pink-100" },
+        { id: "a4", korean: "호랑이", romaja: "horangi", chinese: "老虎", emoji: "🐯", imageColor: "bg-yellow-100" },
+        { id: "a5", korean: "곰", romaja: "gom", chinese: "熊", emoji: "🐻", imageColor: "bg-stone-100" },
+        { id: "a6", korean: "돼지", romaja: "dwaeji", chinese: "豬", emoji: "🐷", imageColor: "bg-rose-100" },
+        { id: "a7", korean: "새", romaja: "sae", chinese: "小鳥", emoji: "🐦", imageColor: "bg-cyan-100" },
+        { id: "a8", korean: "물고기", romaja: "mulgogi", chinese: "魚", emoji: "🐟", imageColor: "bg-blue-100" }
+      ]
+    };
+
+    /* ==========================================================================
+       2. GAME STATE MANAGEMENT
+       ========================================================================== */
+    let currentCategory = 'food';
+    let currentLevelIndex = 0; // 0: items 0-3, 1: items 4-7
+    let score = 0;
+    let combo = 0;
+    let isMuted = false;
+    let currentLevelWords = [];
+    let matchedCount = 0;
+    let draggedCardId = null;
+
+    /* ==========================================================================
+       3. AUDIO SYNTHESIS & SOUND EFFECTS (Web Audio API & Web Speech API)
+       ========================================================================== */
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    function playSound(type) {
+      if (isMuted) return;
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+
+      const now = audioCtx.currentTime;
+
+      if (type === 'pickup') {
+        // Soft click
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(300, now);
+        osc.frequency.exponentialRampToValueAtTime(600, now + 0.05);
+        gain.gain.setValueAtTime(0.15, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.05);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.05);
+      } else if (type === 'success') {
+        // High pleasant chime
+        const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+        notes.forEach((freq, idx) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.value = freq;
+          gain.gain.setValueAtTime(0.12, now + idx * 0.06);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.06 + 0.25);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now + idx * 0.06);
+          osc.stop(now + idx * 0.06 + 0.25);
+        });
+      } else if (type === 'wrong') {
+        // Low soft thud
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(180, now);
+        osc.frequency.exponentialRampToValueAtTime(100, now + 0.15);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.15);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.15);
+      } else if (type === 'complete') {
+        // Celebration Fanfare
+        const fanfare = [523.25, 659.25, 783.99, 1046.50, 1318.51];
+        fanfare.forEach((freq, idx) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.value = freq;
+          gain.gain.setValueAtTime(0.15, now + idx * 0.1);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.1 + 0.4);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now + idx * 0.1);
+          osc.stop(now + idx * 0.1 + 0.4);
+        });
+      }
+    }
+
+    // Web Speech API for Korean Pronunciation
+    function speakKorean(text) {
+      if (!('speechSynthesis' in window)) return;
+      
+      window.speechSynthesis.cancel(); // Stop ongoing speech
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'ko-KR';
+      utterance.rate = 0.85; // slightly slower for language learners
+
+      // Try picking a natural Korean voice if available
+      const voices = window.speechSynthesis.getVoices();
+      const koVoice = voices.find(v => v.lang.includes('ko'));
+      if (koVoice) {
+        utterance.voice = koVoice;
+      }
+
+      window.speechSynthesis.speak(utterance);
+    }
+
+    function toggleMute() {
+      isMuted = !isMuted;
+      const icon = document.getElementById('sound-icon');
+      if (isMuted) {
+        icon.className = 'fa-solid fa-volume-xmark text-rose-400';
+      } else {
+        icon.className = 'fa-solid fa-volume-low';
+        playSound('pickup');
+      }
+    }
+
+    /* ==========================================================================
+       4. GAME RENDER & INITIALIZATION
+       ========================================================================== */
+    function initGame() {
+      // Get 4 words based on current level
+      const allCategoryWords = VOCABULARY_DATA[currentCategory];
+      const startIndex = currentLevelIndex * 4;
+      currentLevelWords = allCategoryWords.slice(startIndex, startIndex + 4);
+      matchedCount = 0;
+
+      // Update UI labels
+      document.getElementById('level-indicator').innerText = `關卡 ${currentLevelIndex + 1} / 2`;
+      document.getElementById('matched-count-text').innerText = `0 / ${currentLevelWords.length}`;
+      document.getElementById('level-complete-modal').classList.add('hidden');
+      updateProgressBar();
+
+      // Render Target Zones (Pictures)
+      renderDropZones();
+
+      // Render Draggable Word Cards (Shuffled)
+      renderDraggableCards();
+    }
+
+    function selectCategory(cat) {
+      currentCategory = cat;
+      currentLevelIndex = 0;
+      
+      // Update Category Buttons Style
+      document.querySelectorAll('.cat-btn').forEach(btn => {
+        btn.className = 'cat-btn py-2 px-3 rounded-xl border border-slate-200 bg-white text-slate-600 font-medium text-xs text-center flex flex-col items-center gap-1 hover:shadow-sm transition';
+      });
+      const activeBtn = document.getElementById(`cat-btn-${cat}`);
+      activeBtn.className = 'cat-btn py-2 px-3 rounded-xl border border-rose-200 bg-rose-50 text-rose-600 font-medium text-xs text-center flex flex-col items-center gap-1 hover:shadow-sm transition';
+
+      playSound('pickup');
+      initGame();
+    }
+
+    function renderDropZones() {
+      const container = document.getElementById('drop-zones-container');
+      container.innerHTML = '';
+
+      currentLevelWords.forEach(word => {
+        const zone = document.createElement('div');
+        zone.id = `zone-${word.id}`;
+        zone.dataset.id = word.id;
+        zone.className = `drop-zone ${word.imageColor} border-2 border-dashed border-slate-300 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 min-h-[140px] relative text-center shadow-inner`;
+        
+        zone.innerHTML = `
+          <div class="text-4xl transform hover:scale-110 transition duration-200">${word.emoji}</div>
+          <div class="text-xs font-bold text-slate-700">${word.chinese}</div>
+          <div class="match-placeholder text-[10px] text-slate-400 bg-white/70 px-2 py-0.5 rounded-full border border-slate-200">
+            請拖曳韓文至此
+          </div>
+        `;
+
+        // Event Listeners for HTML5 Drag and Drop
+        zone.addEventListener('dragover', handleDragOver);
+        zone.addEventListener('dragleave', handleDragLeave);
+        zone.addEventListener('drop', handleDrop);
+
+        container.appendChild(zone);
+      });
+    }
+
+    function renderDraggableCards() {
+      const container = document.getElementById('draggable-cards-container');
+      container.innerHTML = '';
+
+      // Shuffle word array for the draggable list
+      const shuffledWords = [...currentLevelWords].sort(() => Math.random() - 0.5);
+
+      shuffledWords.forEach(word => {
+        const card = document.createElement('div');
+        card.id = `card-${word.id}`;
+        card.dataset.id = word.id;
+        card.draggable = true;
+        card.className = `drag-card bg-white border border-rose-200 shadow-md shadow-rose-100/50 hover:border-rose-400 rounded-2xl px-5 py-3 flex flex-col items-center justify-center gap-0.5 cursor-grab active:cursor-grabbing text-center`;
+
+        card.innerHTML = `
+          <span class="korean-font font-black text-xl text-slate-800 tracking-wide">${word.korean}</span>
+          <span class="text-[10px] font-semibold text-rose-400">[${word.romaja}]</span>
+        `;
+
+        // Add Drag Events
+        card.addEventListener('dragstart', handleDragStart);
+        card.addEventListener('dragend', handleDragEnd);
+        
+        // Touch events fallback for mobile support
+        card.addEventListener('click', () => {
+          speakKorean(word.korean);
+        });
+
+        container.appendChild(card);
+      });
+    }
+
+    /* ==========================================================================
+       5. DRAG & DROP HANDLERS
+       ========================================================================== */
+    function handleDragStart(e) {
+      draggedCardId = this.dataset.id;
+      this.classList.add('dragging');
+      e.dataTransfer.setData('text/plain', this.dataset.id);
+      playSound('pickup');
+
+      // Speak word when picked up
+      const wordObj = currentLevelWords.find(w => w.id === draggedCardId);
+      if (wordObj) speakKorean(wordObj.korean);
+    }
+
+    function handleDragEnd() {
+      this.classList.remove('dragging');
+    }
+
+    function handleDragOver(e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      this.classList.add('drag-over');
+    }
+
+    function handleDragLeave() {
+      this.classList.remove('drag-over');
+    }
+
+    function handleDrop(e) {
+      e.preventDefault();
+      this.classList.remove('drag-over');
+      
+      const targetId = this.dataset.id;
+      const cardId = e.dataTransfer.getData('text/plain') || draggedCardId;
+
+      if (!cardId) return;
+
+      if (cardId === targetId) {
+        // MATCH SUCCESS!
+        handleMatchSuccess(cardId, this);
+      } else {
+        // MATCH WRONG
+        handleMatchWrong(this);
+      }
+    }
+
+    function handleMatchSuccess(wordId, targetZone) {
+      const wordObj = currentLevelWords.find(w => w.id === wordId);
+      const cardElem = document.getElementById(`card-${wordId}`);
+
+      // Play chime sound
+      playSound('success');
+
+      // Update state
+      matchedCount++;
+      combo++;
+      score += 100 * combo;
+      document.getElementById('score-text').innerText = score;
+
+      // Update Combo UI
+      const comboBadge = document.getElementById('combo-badge');
+      if (combo > 1) {
+        comboBadge.innerText = `🔥 ${combo} 連勝!`;
+        comboBadge.classList.remove('hidden');
+      }
+
+      // Transform Target Zone UI
+      targetZone.classList.add('matched');
+      targetZone.innerHTML = `
+        <div class="text-3xl">${wordObj.emoji}</div>
+        <div class="korean-font font-black text-xl text-emerald-800">${wordObj.korean}</div>
+        <div class="text-xs font-semibold text-emerald-600">${wordObj.chinese} [${wordObj.romaja}]</div>
+        <div class="absolute top-2 right-2 text-emerald-500 font-bold text-xs"><i class="fa-solid fa-circle-check"></i></div>
+      `;
+
+      // Remove draggable card
+      if (cardElem) cardElem.remove();
+
+      // Show Toast Notification
+      showToast(wordObj.korean, wordObj.romaja, wordObj.chinese);
+
+      // Update Progress Bar
+      updateProgressBar();
+
+      // Check Level Completion
+      if (matchedCount === currentLevelWords.length) {
+        setTimeout(handleLevelComplete, 600);
+      }
+    }
+
+    function handleMatchWrong(targetZone) {
+      playSound('wrong');
+      combo = 0; // reset combo
+      document.getElementById('combo-badge').classList.add('hidden');
+
+      // Shake animation effect
+      targetZone.classList.add('animate-bounce');
+      setTimeout(() => {
+        targetZone.classList.remove('animate-bounce');
+      }, 400);
+    }
+
+    function updateProgressBar() {
+      const pct = (matchedCount / currentLevelWords.length) * 100;
+      document.getElementById('progress-bar').style.width = `${pct}%`;
+      document.getElementById('matched-count-text').innerText = `${matchedCount} / ${currentLevelWords.length}`;
+    }
+
+    function showToast(korean, romaja, chinese) {
+      const toast = document.getElementById('feedback-toast');
+      document.getElementById('toast-korean').innerText = korean;
+      document.getElementById('toast-romaja').innerText = `[${romaja}]`;
+      document.getElementById('toast-meaning').innerText = `意思是：${chinese}`;
+
+      toast.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-4');
+      toast.classList.add('opacity-100', 'translate-y-0');
+
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'pointer-events-none', 'translate-y-4');
+        toast.classList.remove('opacity-100', 'translate-y-0');
+      }, 3000);
+    }
+
+    /* ==========================================================================
+       6. LEVEL COMPLETE & PARTICLES
+       ========================================================================== */
+    function handleLevelComplete() {
+      playSound('complete');
+      triggerConfetti();
+
+      // Populate summary modal
+      document.getElementById('modal-score').innerText = `得分: ${score}`;
+      const listContainer = document.getElementById('learned-words-list');
+      listContainer.innerHTML = '';
+
+      currentLevelWords.forEach(w => {
+        const item = document.createElement('div');
+        item.className = 'flex justify-between items-center py-1 border-b border-amber-100/60 last:border-none';
+        item.innerHTML = `
+          <span class="korean-font font-bold">${w.emoji} ${w.korean} <span class="text-[10px] font-normal text-amber-700">(${w.romaja})</span></span>
+          <span class="text-amber-800 font-medium">${w.chinese}</span>
+        `;
+        listContainer.appendChild(item);
+      });
+
+      // Show Modal
+      document.getElementById('level-complete-modal').classList.remove('hidden');
+    }
+
+    function restartLevel() {
+      initGame();
+    }
+
+    function nextLevel() {
+      const maxLevels = Math.ceil(VOCABULARY_DATA[currentCategory].length / 4);
+      if (currentLevelIndex < maxLevels - 1) {
+        currentLevelIndex++;
+      } else {
+        currentLevelIndex = 0; // loop back or switch
+      }
+      initGame();
+    }
+
+    /* ==========================================================================
+       7. CONFETTI / CELEBRATION PARTICLES CANVAS
+       ========================================================================== */
+    const canvas = document.getElementById('particle-canvas');
+    const ctx = canvas.getContext('2d');
+    let particles = [];
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    function triggerConfetti() {
+      particles = [];
+      const colors = ['#FF8A80', '#FFD54F', '#81C784', '#64B5F6', '#BA68C8'];
+      
+      for (let i = 0; i < 90; i++) {
+        particles.push({
+          x: canvas.width / 2,
+          y: canvas.height / 2,
+          vx: (Math.random() - 0.5) * 14,
+          vy: (Math.random() - 0.7) * 16,
+          size: Math.random() * 8 + 4,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          alpha: 1,
+          gravity: 0.25,
+          rotation: Math.random() * 360,
+          rotSpeed: (Math.random() - 0.5) * 10
+        });
+      }
+      requestAnimationFrame(updateParticles);
+    }
+
+    function updateParticles() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      let active = false;
+      particles.forEach(p => {
+        if (p.alpha > 0) {
+          active = true;
+          p.x += p.vx;
+          p.y += p.vy;
+          p.vy += p.gravity;
+          p.alpha -= 0.012;
+          p.rotation += p.rotSpeed;
+
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate((p.rotation * Math.PI) / 180);
+          ctx.globalAlpha = Math.max(0, p.alpha);
+          ctx.fillStyle = p.color;
+          ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+          ctx.restore();
+        }
+      });
+
+      if (active) {
+        requestAnimationFrame(updateParticles);
+      }
+    }
+
+    /* Start Game on Window Load */
+    window.onload = () => {
+      initGame();
+    };
+  </script>
+</body>
+</html>
